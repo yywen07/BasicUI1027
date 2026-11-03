@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +56,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import tw.edu.pu.csim.yywen.basicui.ui.theme.BasicUITheme
+
+import androidx.compose.material3.Button
 
 
 class MainActivity : ComponentActivity() {
@@ -85,7 +88,9 @@ fun Main(modifier: Modifier = Modifier) {
         ColumnExample(modifier)
         TextFieldExample(modifier)
         LazyRowExample(modifier)
-        SimpleVideoPlayer(R.raw.love)
+        //SimpleVideoPlayer(R.raw.love)
+        SwitchableVideoPlayer()
+
     }
 }
 
@@ -267,27 +272,78 @@ fun SimpleVideoPlayer(
         }
     }
 
-    // 利用 DisposableEffect 管理生命週期
-    // 離開畫面時自動釋放記憶體
-    DisposableEffect(Unit) {
-        onDispose {
-            exoPlayer.release() // 💡 釋放播放器資源
+
+
+
+        // 利用 DisposableEffect 管理生命週期
+        // 離開畫面時自動釋放記憶體
+        DisposableEffect(Unit) {
+            onDispose {
+                exoPlayer.release() // 💡 釋放播放器資源
+            }
         }
+
+
+        //將原生的 PlayerView 嵌入 Compose
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    player = exoPlayer
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+        )
     }
 
 
+@Composable
+fun SwitchableVideoPlayer() {
+    val context = LocalContext.current
 
-    //將原生的 PlayerView 嵌入 Compose
-    AndroidView(
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                player = exoPlayer
+    // true = love.mp4, false = handpan.mp4
+    var isLove by remember { mutableStateOf(true) }
+
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            val uri = "android.resource://${context.packageName}/${R.raw.love}"
+            setMediaItem(MediaItem.fromUri(uri))
+            prepare()
+            playWhenReady = true
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { exoPlayer.release() }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply { player = exoPlayer }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+        )
+
+        Button(
+            onClick = {
+                isLove = !isLove
+                val res = if (isLove) R.raw.love else R.raw.handpan
+                val uri = "android.resource://${context.packageName}/$res"
+                exoPlayer.setMediaItem(MediaItem.fromUri(uri))
+                exoPlayer.prepare()
+                exoPlayer.playWhenReady = true
             }
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-    )
+        ) {
+            Text(if (isLove) "切換至手碟影片" else "切換至Love影片")
+        }
+    }
 }
 
 
